@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StudySync</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:      #0d0f14; --surface: #151820; --card: #1b1f2b; --border: #252a38;
+    --accent1: #6c8bff; --accent2: #49d9a2; --text: #e8eaf0; --muted: #6b7280;
+    --done:    #49d9a2; --miss: #ff6b6b;    --warn: #f5a623;
+    --radius:  14px;    --font: 'DM Sans', sans-serif; --mono: 'DM Mono', monospace;
+    --ease:    cubic-bezier(.4,0,.2,1);
+  }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 15px; line-height: 1.6; min-height: 100vh; }
+
+  /* ── SETUP OVERLAY ── */
+  #setupOverlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: rgba(13,15,20,.98);
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
+  .setup-box {
+    background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+    padding: 38px 42px; max-width: 540px; width: 100%;
+    animation: popIn .4s var(--ease);
+  }
+  @keyframes popIn { from{opacity:0;transform:scale(.95) translateY(12px)} to{opacity:1;transform:none} }
+  .setup-box h2 { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+  .setup-box h2 span { color: var(--accent1); }
+  .setup-box > p { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+
+  .steps-box { background: var(--surface); border-radius: 10px; padding: 18px 20px; margin-bottom: 22px; }
+  .steps-box h4 { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 10px; }
+  .step { display: flex; gap: 12px; margin-bottom: 9px; align-items: flex-start; }
+  .step-num { background: var(--accent1); color: #0d0f14; font-size: 11px; font-weight: 700; border-radius: 50%; width: 20px; height: 20px; display: grid; place-items: center; flex-shrink: 0; margin-top: 2px; }
+  .step p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .step p strong { color: var(--text); }
+  .step p a { color: var(--accent1); text-decoration: none; }
+
+  .setup-field { margin-bottom: 13px; }
+  .setup-field label { display: block; font-size: 11px; color: var(--muted); font-weight: 600; margin-bottom: 5px; text-transform: uppercase; letter-spacing: .6px; }
+  .setup-field input {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 10px 14px;
+    font-family: var(--mono); font-size: 13px; outline: none;
+    transition: border-color .2s var(--ease);
+  }
+  .setup-field input:focus { border-color: var(--accent1); }
+  .name-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .name-row .setup-field { margin: 0; }
+
+  .btn { padding: 11px 24px; border-radius: 9px; font-family: var(--font); font-size: 14px; font-weight: 600; cursor: pointer; border: none; transition: opacity .2s, transform .15s var(--ease); }
+  .btn:hover { opacity: .88; transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn-primary { background: var(--accent1); color: #0d0f14; width: 100%; margin-top: 4px; }
+  .btn-sm { padding: 8px 18px; font-size: 13px; }
+  .btn-danger { background: transparent; border: 1px solid var(--miss); color: var(--miss); padding: 5px 12px; font-size: 12px; border-radius: 6px; }
+
+  /* ── LOADING ── */
+  #loadingScreen {
+    position: fixed; inset: 0; z-index: 400;
+    background: var(--bg); display: none;
+    flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+  }
+  .spinner { width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--border); border-top-color: var(--accent1); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loadingMsg { color: var(--muted); font-size: 14px; }
+
+  /* ── HEADER ── */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 40px; border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(13,15,20,.92); backdrop-filter: blur(18px);
+  }
+  .logo { font-size: 18px; font-weight: 600; }
+  .logo span { color: var(--accent1); }
+  .header-center { display: flex; align-items: center; gap: 10px; }
+  .mnav-btn { background: var(--card); border: 1px solid var(--border); color: var(--text); width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: grid; place-items: center; transition: background .2s, border-color .2s; }
+  .mnav-btn:hover { background: var(--border); border-color: var(--accent1); }
+  #monthLabel { font-family: var(--mono); font-size: 13px; min-width: 118px; text-align: center; }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+
+  .sync-pill { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--card); white-space: nowrap; }
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); transition: background .3s; }
+  .sync-dot.synced  { background: var(--done); }
+  .sync-dot.syncing { background: var(--warn); animation: blink .8s ease infinite; }
+  .sync-dot.error   { background: var(--miss); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  .icon-btn { background: var(--card); border: 1px solid var(--border); color: var(--muted); padding: 7px 14px; border-radius: 8px; font-family: var(--font); font-size: 13px; cursor: pointer; transition: all .2s var(--ease); }
+  .icon-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  /* ── MAIN ── */
+  main { max-width: 1200px; margin: 0 auto; padding: 36px 24px 80px; }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 30px; }
+  .tab { padding: 9px 22px; border-radius: 50px; font-weight: 500; font-size: 14px; cursor: pointer; border: 1px solid var(--border); background: var(--card); color: var(--muted); transition: all .25s var(--ease); }
+  .tab.a1 { background: rgba(108,139,255,.15); border-color: var(--accent1); color: var(--accent1); }
+  .tab.a2 { background: rgba(73,217,162,.15);  border-color: var(--accent2); color: var(--accent2); }
+  .tab.ab { background: var(--surface); border-color: var(--border); color: var(--text); }
+
+  /* ── SUMMARY ── */
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px,1fr)); gap: 13px; margin-bottom: 30px; }
+  .sum-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 17px 19px; transition: border-color .2s; }
+  .sum-card:hover { border-color: var(--accent1); }
+  .sum-card .lbl { font-size: 11px; font-weight: 500; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+  .sum-card .val { font-family: var(--mono); font-size: 25px; font-weight: 500; }
+  .val.c1 { color: var(--accent1); } .val.c2 { color: var(--accent2); }
+
+  /* ── FORM ── */
+  .form-section { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px 26px; margin-bottom: 30px; }
+  .form-section h3 { font-size: 11px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); margin-bottom: 15px; }
+  .form-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+  .fg { display: flex; flex-direction: column; gap: 5px; }
+  .fg label { font-size: 12px; color: var(--muted); font-weight: 500; }
+  .fg input, .fg select { background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 9px 13px; font-family: var(--font); font-size: 14px; outline: none; transition: border-color .2s; min-width: 130px; }
+  .fg input:focus, .fg select:focus { border-color: var(--accent1); }
+  .fg input[type=number] { width: 112px; }
+
+  /* ── TABLE ── */
+  .table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 18px; }
+  .thbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; border-bottom: 1px solid var(--border); }
+  .thbar h2 { font-size: 15px; font-weight: 600; }
+  .sdot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  thead th { text-align: left; padding: 11px 20px; font-size: 11px; font-weight: 500; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); background: var(--surface); }
+  tbody tr { transition: background .15s; animation: rowIn .3s var(--ease) both; }
+  @keyframes rowIn { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:none} }
+  tbody tr:hover { background: rgba(255,255,255,.03); }
+  tbody td { padding: 12px 20px; font-size: 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+  .badge::before { content:''; width:6px; height:6px; border-radius:50%; background:currentColor; }
+  .badge.done { background: rgba(73,217,162,.12); color: var(--done); }
+  .badge.miss { background: rgba(255,107,107,.12); color: var(--miss); }
+
+  .hval { font-family: var(--mono); font-size: 14px; }
+  .empty-state { text-align: center; padding: 52px 20px; color: var(--muted); }
+  .empty-state p { font-size: 14px; margin-top: 8px; }
+
+  .footer-stats { border-top: 1px solid var(--border); padding: 15px 22px; display: flex; gap: 26px; flex-wrap: wrap; }
+  .footer-stats span { font-size: 13px; color: var(--muted); }
+  .footer-stats strong { color: var(--text); }
+
+  /* ── BAR CHART ── */
+  .bar-chart { padding: 22px; }
+  .bar-chart h3 { font-size: 11px; color: var(--muted); margin-bottom: 14px; text-transform: uppercase; letter-spacing: .8px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .bar-lbl { width: 26px; color: var(--muted); font-family: var(--mono); font-size: 11px; text-align: right; flex-shrink: 0; }
+  .bar-track { flex: 1; background: var(--surface); border-radius: 4px; height: 8px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width .6s var(--ease); }
+  .bar-h { width: 34px; font-family: var(--mono); color: var(--muted); font-size: 11px; text-align: right; flex-shrink: 0; }
+
+  .month-dots { display: flex; flex-wrap: wrap; gap: 4px; }
+  .mdot { width: 7px; height: 7px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); cursor: default; }
+  .mdot.done { background: var(--done); border-color: var(--done); }
+  .mdot.miss { background: var(--miss); border-color: var(--miss); }
+
+  /* ── TOAST ── */
+  .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 11px 22px; border-radius: 50px; font-size: 13px; font-weight: 500; transition: transform .3s var(--ease), opacity .3s; opacity: 0; pointer-events: none; z-index: 999; white-space: nowrap; }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  select option { background: #1b1f2b; }
+
+  @media(max-width:680px) {
+    header { padding: 14px 16px; flex-wrap: wrap; gap: 8px; }
+    main   { padding: 20px 14px 60px; }
+    .name-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── SETUP OVERLAY ── -->
+<div id="setupOverlay">
+  <div class="setup-box">
+    <h2>Set up <span>StudySync</span></h2>
+    <p>Connect to Google Sheets so your data persists across every tab and device — for free.</p>
+
+    <div class="steps-box">
+      <h4>One-time setup (3 min)</h4>
+      <div class="step"><div class="step-num">1</div><p>Open <a href="https://script.google.com" target="_blank">script.google.com</a> → click <strong>"New project"</strong></p></div>
+      <div class="step"><div class="step-num">2</div><p>Delete all code → paste the entire content of <strong>StudySync_AppsScript.js</strong></p></div>
+      <div class="step"><div class="step-num">3</div><p>Click <strong>Deploy → New deployment</strong> → Type: <strong>Web app</strong> → Execute as: <strong>Me</strong> → Who has access: <strong>Anyone</strong></p></div>
+      <div class="step"><div class="step-num">4</div><p>Click <strong>Deploy</strong> → authorize → copy the <strong>Web app URL</strong></p></div>
+      <div class="step"><div class="step-num">5</div><p>Paste the URL below and hit <strong>Connect</strong></p></div>
+    </div>
+
+    <div class="setup-field">
+      <label>Google Apps Script Web App URL</label>
+      <input type="text" id="cfgUrl" placeholder="https://script.google.com/macros/s/.../exec">
+    </div>
+    <div class="name-row">
+      <div class="setup-field">
+        <label>Student 1 Name</label>
+        <input type="text" id="cfgName1" placeholder="Student 1">
+      </div>
+      <div class="setup-field">
+        <label>Student 2 Name</label>
+        <input type="text" id="cfgName2" placeholder="Student 2">
+      </div>
+    </div>
+    <button class="btn btn-primary" id="connectBtn">Connect &amp; Load Data</button>
+    <p style="text-align:center;margin-top:12px;font-size:12px;color:var(--muted)">Your URL is saved in your browser. Data lives in Google Sheets.</p>
+  </div>
+</div>
+
+<!-- ── LOADING ── -->
+<div id="loadingScreen">
+  <div class="spinner"></div>
+  <p id="loadingMsg">Connecting to Google Sheets…</p>
+</div>
+
+<!-- ── APP ── -->
+<div id="app" style="display:none">
+  <header>
+    <div class="logo">Study<span>Sync</span></div>
+    <div class="header-center">
+      <button class="mnav-btn" id="prevMonth">&#8249;</button>
+      <span id="monthLabel">—</span>
+      <button class="mnav-btn" id="nextMonth">&#8250;</button>
+    </div>
+    <div class="header-right">
+      <div class="sync-pill"><div class="sync-dot" id="syncDot"></div><span id="syncLabel">—</span></div>
+      <button class="icon-btn" id="exportBtn">⬇ Export</button>
+      <button class="icon-btn" id="settingsBtn">⚙ Settings</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="tabs">
+      <div class="tab a1" data-view="1"    id="tab1">Student 1</div>
+      <div class="tab"    data-view="2"    id="tab2">Student 2</div>
+      <div class="tab"    data-view="both" id="tabBoth">Compare Both</div>
+    </div>
+
+    <div class="summary-grid" id="summaryGrid"></div>
+
+    <div class="form-section">
+      <h3>Log Study Session</h3>
+      <div class="form-row">
+        <div class="fg">
+          <label>Student</label>
+          <select id="fStudent">
+            <option value="1">Student 1</option>
+            <option value="2">Student 2</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Date</label>
+          <input type="date" id="fDate">
+        </div>
+        <div class="fg">
+          <label>Study Hours</label>
+          <input type="number" id="fHours" min="0" max="24" step="0.5" placeholder="e.g. 7">
+        </div>
+        <div class="fg">
+          <label>&nbsp;</label>
+          <button class="btn btn-primary btn-sm" id="addBtn">+ Add Entry</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="contentArea"></div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════
+// CONFIG
+// ══════════════════════════════════
+const CFG_KEY = 'studysync_cfg_v2';
+function loadCfg() { try { return JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch { return {}; } }
+function saveCfg(c) { localStorage.setItem(CFG_KEY, JSON.stringify(c)); }
+
+let cfg = loadCfg();
+let db  = null;
+let pendingSave = null;
+let saveTimer   = null;
+
+// ══════════════════════════════════
+// STATE
+// ══════════════════════════════════
+let view = '1';
+let curY, curM;
+(()=>{ const n=new Date(); curY=n.getFullYear(); curM=n.getMonth(); })();
+
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+// ══════════════════════════════════
+// TOAST
+// ══════════════════════════════════
+function toast(msg, color) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderColor = color || 'var(--border)';
+  t.classList.add('show');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ══════════════════════════════════
+// SYNC STATUS
+// ══════════════════════════════════
+function setSync(state) {
+  const dot = document.getElementById('syncDot');
+  const lbl = document.getElementById('syncLabel');
+  dot.className = 'sync-dot ' + state;
+  lbl.textContent = state === 'syncing' ? 'Saving…' : state === 'synced' ? 'Synced' : 'Sync error';
+}
+
+// ══════════════════════════════════
+// API  (Google Apps Script)
+// ══════════════════════════════════
+async function apiFetch() {
+  // Using no-cors fetch via a proxy pattern — GAS supports JSONP via callback
+  const url = cfg.scriptUrl + '?t=' + Date.now();
+  const res  = await fetch(url);
+  if (!res.ok) throw new Error('Fetch ' + res.status);
+  return await res.json();
+}
+
+async function apiSave(data) {
+  setSync('syncing');
+  try {
+    const res = await fetch(cfg.scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' }, // GAS requires text/plain for CORS POST
+      body: JSON.stringify({ data })
+    });
+    if (!res.ok) throw new Error('Save ' + res.status);
+    setSync('synced');
+  } catch(e) {
+    setSync('error');
+    toast('⚠ Could not save. Check connection.', 'var(--miss)');
+  }
+}
+
+// Debounced save — batches rapid changes into one request
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => apiSave(db), 600);
+}
+
+// ══════════════════════════════════
+// CONNECT
+// ══════════════════════════════════
+document.getElementById('connectBtn').addEventListener('click', async () => {
+  const url   = document.getElementById('cfgUrl').value.trim();
+  const name1 = document.getElementById('cfgName1').value.trim() || 'Student 1';
+  const name2 = document.getElementById('cfgName2').value.trim() || 'Student 2';
+  if (!url) { toast('Paste your Apps Script URL.', 'var(--miss)'); return; }
+  cfg = { scriptUrl: url, name1, name2 };
+  saveCfg(cfg);
+  await initApp();
+});
+
+// ══════════════════════════════════
+// INIT
+// ══════════════════════════════════
+async function initApp() {
+  document.getElementById('setupOverlay').style.display = 'none';
+  const ls = document.getElementById('loadingScreen');
+  ls.style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('loadingMsg').textContent = 'Connecting to Google Sheets…';
+  ls.querySelector('.spinner').style.display = 'block';
+
+  try {
+    const res = await apiFetch();
+    db = res.data;
+
+    // Ensure structure
+    if (!db.students) db.students = {};
+    ['1','2'].forEach(sid => {
+      if (!db.students[sid]) db.students[sid] = { name: 'Student '+sid, entries: [] };
+    });
+    db.students['1'].name = cfg.name1 || db.students['1'].name;
+    db.students['2'].name = cfg.name2 || db.students['2'].name;
+
+  } catch(e) {
+    document.getElementById('loadingMsg').textContent = '❌ Could not connect. Check your URL and try again.';
+    ls.querySelector('.spinner').style.display = 'none';
+    setTimeout(() => {
+      ls.style.display = 'none';
+      document.getElementById('setupOverlay').style.display = 'flex';
+      toast('Connection failed. Double-check the URL.', 'var(--miss)');
+    }, 2500);
+    return;
+  }
+
+  // Update UI names
+  document.getElementById('tab1').textContent = db.students['1'].name;
+  document.getElementById('tab2').textContent = db.students['2'].name;
+  document.getElementById('fStudent').options[0].text = db.students['1'].name;
+  document.getElementById('fStudent').options[1].text = db.students['2'].name;
+
+  ls.style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  setSync('synced');
+  render();
+}
+
+// Auto-connect
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('fDate').value = new Date().toISOString().split('T')[0];
+  if (cfg.scriptUrl) {
+    document.getElementById('cfgUrl').value   = cfg.scriptUrl;
+    document.getElementById('cfgName1').value = cfg.name1 || '';
+    document.getElementById('cfgName2').value = cfg.name2 || '';
+    initApp();
+  }
+});
+
+// Settings
+document.getElementById('settingsBtn').addEventListener('click', () => {
+  document.getElementById('cfgUrl').value   = cfg.scriptUrl || '';
+  document.getElementById('cfgName1').value = cfg.name1 || '';
+  document.getElementById('cfgName2').value = cfg.name2 || '';
+  document.getElementById('setupOverlay').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+});
+
+// ══════════════════════════════════
+// MONTH NAV
+// ══════════════════════════════════
+document.getElementById('prevMonth').addEventListener('click', () => { curM--; if(curM<0){curM=11;curY--;} render(); });
+document.getElementById('nextMonth').addEventListener('click', () => { curM++; if(curM>11){curM=0;curY++;} render(); });
+
+// ══════════════════════════════════
+// TABS
+// ══════════════════════════════════
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    view = tab.dataset.view;
+    document.querySelectorAll('.tab').forEach(t => t.className = 'tab');
+    if(view==='1') tab.classList.add('a1');
+    else if(view==='2') tab.classList.add('a2');
+    else tab.classList.add('ab');
+    render();
+  });
+});
+
+// ══════════════════════════════════
+// ADD / DELETE
+// ══════════════════════════════════
+document.getElementById('addBtn').addEventListener('click', () => {
+  const sid   = document.getElementById('fStudent').value;
+  const date  = document.getElementById('fDate').value;
+  const hours = parseFloat(document.getElementById('fHours').value);
+
+  if (!date) { toast('Pick a date.', 'var(--miss)'); return; }
+  if (isNaN(hours)||hours<0||hours>24) { toast('Hours must be 0–24.', 'var(--miss)'); return; }
+
+  const idx = db.students[sid].entries.findIndex(e=>e.date===date);
+  if (idx>-1) { db.students[sid].entries[idx].hours=hours; toast('Entry updated ✓','var(--accent1)'); }
+  else { db.students[sid].entries.push({date,hours}); db.students[sid].entries.sort((a,b)=>a.date.localeCompare(b.date)); toast('Session logged ✓','var(--done)'); }
+
+  const [y,m]=date.split('-').map(Number); curY=y; curM=m-1;
+  render();
+  scheduleSave();
+});
+
+function deleteEntry(sid, date) {
+  db.students[sid].entries = db.students[sid].entries.filter(e=>e.date!==date);
+  toast('Deleted.','var(--miss)'); render(); scheduleSave();
+}
+window.deleteEntry = deleteEntry;
+
+// ══════════════════════════════════
+// EXPORT
+// ══════════════════════════════════
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const mk = `${curY}-${String(curM+1).padStart(2,'0')}`;
+  const blob = new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
+  const a = Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:`studysync_${mk}.json`});
+  a.click(); toast('Exported!','var(--accent2)');
+});
+
+// ══════════════════════════════════
+// HELPERS
+// ══════════════════════════════════
+function mk()      { return `${curY}-${String(curM+1).padStart(2,'0')}`; }
+function entries(sid) { const m=mk(); return (db.students[sid]?.entries||[]).filter(e=>e.date.startsWith(m)); }
+function dim()     { return new Date(curY,curM+1,0).getDate(); }
+function dname(d)  { return DAYS[new Date(d+'T00:00:00').getDay()]; }
+function dnum(d)   { return parseInt(d.split('-')[2]); }
+function fmt(n)    { return Number(n).toFixed(1); }
+function color(sid){ return sid==='1'?'var(--accent1)':'var(--accent2)'; }
+function summary(es) {
+  if(!es.length) return {total:0,avg:0,days:0,completed:0};
+  const total=es.reduce((s,e)=>s+e.hours,0);
+  return {total,avg:total/es.length,days:es.length,completed:es.filter(e=>e.hours>=6).length};
+}
+
+// ══════════════════════════════════
+// RENDER SUMMARY CARDS
+// ══════════════════════════════════
+function renderSummary() {
+  const g = document.getElementById('summaryGrid'); g.innerHTML='';
+  (view==='both'?['1','2']:[view]).forEach(sid=>{
+    const s=summary(entries(sid)), c=sid==='1'?'c1':'c2', nm=db.students[sid].name;
+    [{l:`${nm} — Total Hours`,v:fmt(s.total),c},{l:`${nm} — Days Studied`,v:s.days,c:''},{l:`${nm} — Avg Hrs/Day`,v:fmt(s.avg),c:''},{l:`${nm} — Completed`,v:s.completed,c},{l:`${nm} — Days Missed`,v:Math.max(0,dim()-s.days),c:''}]
+    .forEach(card=>{
+      const el=document.createElement('div'); el.className='sum-card';
+      el.innerHTML=`<div class="lbl">${card.l}</div><div class="val ${card.c}">${card.v}</div>`;
+      g.appendChild(el);
+    });
+  });
+}
+
+// ══════════════════════════════════
+// RENDER SINGLE STUDENT
+// ══════════════════════════════════
+function renderStudent(sid) {
+  const es=entries(sid), s=summary(es), col=color(sid), nm=db.students[sid].name, m=mk();
+
+  const rows = !es.length
+    ? `<tr><td colspan="5"><div class="empty-state"><div style="font-size:32px">📚</div><p>No sessions logged for ${MONTHS[curM]} ${curY}.</p></div></td></tr>`
+    : es.map((e,i)=>`<tr style="animation-delay:${i*25}ms">
+        <td style="color:var(--muted);font-family:var(--mono)">${String(dnum(e.date)).padStart(2,'0')}</td>
+        <td>${dname(e.date)}, ${e.date}</td>
+        <td><span class="hval" style="color:${col}">${fmt(e.hours)}h</span></td>
+        <td><span class="badge ${e.hours>=6?'done':'miss'}">${e.hours>=6?'Completed':'Incomplete'}</span></td>
+        <td><button class="btn btn-danger" onclick="deleteEntry('${sid}','${e.date}')">Delete</button></td>
+      </tr>`).join('');
+
+  const maxH = es.length?Math.max(...es.map(e=>e.hours)):10;
+  const bars = es.map(e=>`<div class="bar-row">
+    <span class="bar-lbl">${String(dnum(e.date)).padStart(2,'0')}</span>
+    <div class="bar-track"><div class="bar-fill" style="width:${maxH>0?(e.hours/maxH*100).toFixed(1):0}%;background:${col}"></div></div>
+    <span class="bar-h">${fmt(e.hours)}</span>
+  </div>`).join('');
+
+  const dots = Array.from({length:dim()},(_,i)=>{
+    const day=String(i+1).padStart(2,'0'), e=es.find(x=>x.date===`${m}-${day}`);
+    return `<div class="mdot ${e?(e.hours>=6?'done':'miss'):''}" title="Day ${i+1}${e?': '+e.hours+'h':''}"></div>`;
+  }).join('');
+
+  return `
+  <div class="table-wrap">
+    <div class="thbar">
+      <h2><span class="sdot" style="background:${col}"></span>${nm} — ${MONTHS[curM]} ${curY}</h2>
+      <span style="font-size:13px;color:var(--muted)">${es.length} sessions · ${fmt(s.total)}h total</span>
+    </div>
+    <table>
+      <thead><tr><th>#</th><th>Day &amp; Date</th><th>Study Hours</th><th>Status</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    ${es.length?`<div class="footer-stats">
+      <span>Total: <strong>${fmt(s.total)}h</strong></span>
+      <span>Average: <strong>${fmt(s.avg)}h/day</strong></span>
+      <span>Days studied: <strong>${s.days}</strong></span>
+      <span>Completed: <strong style="color:var(--done)">${s.completed}</strong></span>
+      <span>Incomplete: <strong style="color:var(--miss)">${es.filter(e=>e.hours<6).length}</strong></span>
+    </div>`:''}
+  </div>
+  ${es.length?`
+  <div class="table-wrap" style="margin-bottom:36px">
+    <div class="bar-chart"><h3>${nm} — Daily Study Hours</h3>${bars}</div>
+    <div style="padding:0 22px 20px">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:7px">Month progress (hover for details)</div>
+      <div class="month-dots">${dots}</div>
+    </div>
+  </div>`:''}`;
+}
+
+// ══════════════════════════════════
+// RENDER COMPARE BOTH
+// ══════════════════════════════════
+function renderBoth() {
+  const e1=entries('1'),e2=entries('2'),s1=summary(e1),s2=summary(e2);
+  const n1=db.students['1'].name,n2=db.students['2'].name;
+  const maxT=Math.max(s1.total,s2.total)||1;
+  const allDates=[...new Set([...e1.map(e=>e.date),...e2.map(e=>e.date)])].sort();
+
+  const rows=!allDates.length
+    ?`<tr><td colspan="6"><div class="empty-state"><div style="font-size:32px">📊</div><p>No data for either student this month.</p></div></td></tr>`
+    :allDates.map((date,i)=>{
+      const h1=e1.find(e=>e.date===date)?.hours, h2=e2.find(e=>e.date===date)?.hours;
+      return `<tr style="animation-delay:${i*22}ms">
+        <td style="color:var(--muted);font-family:var(--mono)">${String(dnum(date)).padStart(2,'0')}</td>
+        <td>${dname(date)}, ${date}</td>
+        <td><span class="hval" style="color:var(--accent1)">${h1!=null?fmt(h1)+'h':'—'}</span></td>
+        <td>${h1!=null?`<span class="badge ${h1>=6?'done':'miss'}">${h1>=6?'Done':'Miss'}</span>`:'<span style="color:var(--muted);font-size:12px">—</span>'}</td>
+        <td><span class="hval" style="color:var(--accent2)">${h2!=null?fmt(h2)+'h':'—'}</span></td>
+        <td>${h2!=null?`<span class="badge ${h2>=6?'done':'miss'}">${h2>=6?'Done':'Miss'}</span>`:'<span style="color:var(--muted);font-size:12px">—</span>'}</td>
+      </tr>`;
+    }).join('');
+
+  return `
+  <div class="table-wrap">
+    <div class="thbar"><h2>Head-to-Head — ${MONTHS[curM]} ${curY}</h2></div>
+    <div style="padding:22px;display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px">${n1}</div>
+        <div class="bar-track" style="height:11px;margin-bottom:6px"><div class="bar-fill" style="width:${(s1.total/maxT*100).toFixed(1)}%;background:var(--accent1)"></div></div>
+        <div style="font-family:var(--mono);font-size:22px;color:var(--accent1)">${fmt(s1.total)}h</div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px">${n2}</div>
+        <div class="bar-track" style="height:11px;margin-bottom:6px"><div class="bar-fill" style="width:${(s2.total/maxT*100).toFixed(1)}%;background:var(--accent2)"></div></div>
+        <div style="font-family:var(--mono);font-size:22px;color:var(--accent2)">${fmt(s2.total)}h</div>
+      </div>
+    </div>
+    <table>
+      <thead><tr><th>#</th><th>Date</th>
+        <th style="color:var(--accent1)">${n1} Hours</th><th style="color:var(--accent1)">${n1} Status</th>
+        <th style="color:var(--accent2)">${n2} Hours</th><th style="color:var(--accent2)">${n2} Status</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    ${allDates.length?`<div class="footer-stats">
+      <span>${n1} avg: <strong style="color:var(--accent1)">${fmt(s1.avg)}h</strong></span>
+      <span>${n2} avg: <strong style="color:var(--accent2)">${fmt(s2.avg)}h</strong></span>
+      <span>${n1} completed: <strong style="color:var(--done)">${s1.completed}</strong></span>
+      <span>${n2} completed: <strong style="color:var(--done)">${s2.completed}</strong></span>
+      <span>${n1} days: <strong>${s1.days}</strong></span>
+      <span>${n2} days: <strong>${s2.days}</strong></span>
+    </div>`:''}
+  </div>`;
+}
+
+// ══════════════════════════════════
+// MASTER RENDER
+// ══════════════════════════════════
+function render() {
+  document.getElementById('monthLabel').textContent = `${MONTHS[curM]} ${curY}`;
+  renderSummary();
+  document.getElementById('contentArea').innerHTML = view==='both' ? renderBoth() : renderStudent(view);
+}
+</script>
+</body>
+</html>
