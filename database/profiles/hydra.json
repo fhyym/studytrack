@@ -1,0 +1,25 @@
+  {
+    "username": "hydra",
+    "name": "Hydra",
+    "overview": {
+      "totalHours": 149.5,
+      "dailyAverage": 6.2,
+      "completedDays": 8,
+      "currentStreak": 3
+    },
+    "personalRecords": {
+      "longestStreak": {
+        "value": 7,
+        "date": "2026-06-15"
+      },
+      "perfectDays": {
+        "value": 12,
+        "date": "2026-06-20"
+      },
+      "bestStudyDay": {
+        "hours": 9.5,
+        "date": "2026-05-30"
+      }
+    }
+  }
+  
