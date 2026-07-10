@@ -1,0 +1,25 @@
+{
+  "users": [
+    {
+      "id": "user1",
+      "username": "knight",
+      "name": "Study Knight",
+      "joinedDate": "2026-06-21",
+      "active": true
+    },
+    {
+      "id": "user2",
+      "username": "hydra",
+      "name": "Hydra",
+      "joinedDate": "2026-06-21",
+      "active": true
+    },
+    {
+      "id": "user3",
+      "username": "sia",
+      "name": "Sia Study",
+      "joinedDate": "2026-06-27",
+      "active": true
+    }
+  ]
+}
