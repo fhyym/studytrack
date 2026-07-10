@@ -13,7 +13,7 @@ const FALLBACK_USERS_DB = {
 let usersDB = { users: [] };
 let currentUserId = null;
 
-// DOM Ref Elements
+// DOM Selectors
 const userSelectScreen = document.getElementById('userSelectScreen');
 const userSelectList   = document.getElementById('userSelectList');
 const appRoot          = document.getElementById('appRoot');
@@ -28,7 +28,7 @@ const addBtn           = document.getElementById('addBtn');
 const navBtns          = document.querySelectorAll('.nav-btn');
 const pages            = document.querySelectorAll('.page');
 
-// Cookie Storage Engines
+// Cookie Handlers
 function setCookie(name, value, days) {
   const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString();
   document.cookie = name + '=' + encodeURIComponent(value) + '; expires=' + expires + '; path=/; SameSite=Lax';
@@ -56,7 +56,7 @@ function saveSession(userId) {
   setCookie(SESSION_COOKIE_NAME, JSON.stringify(payload), SESSION_COOKIE_DAYS);
 }
 
-// User Fetch Utils
+// Data Resolvers
 function findUser(id) {
   return usersDB.users.find(u => u.id === id) || null;
 }
@@ -87,12 +87,12 @@ async function loadUsersDB() {
     if (!res.ok) throw new Error('Status: ' + res.status);
     return await res.json();
   } catch (err) {
-    console.warn('Using fallback local user DB configuration context', err);
+    console.warn('Using local configuration context fallback registry', err);
     return FALLBACK_USERS_DB;
   }
 }
 
-// Layout Transition Functions
+// User Selection View Manager
 function renderUserSelectList() {
   const session = readSession();
   const list = activeUsers();
@@ -139,6 +139,7 @@ function enterApp(userId) {
   appRoot.classList.remove('hidden');
 }
 
+// Account Switcher Interface Components
 function renderProfileSwitch() {
   const cur = findUser(currentUserId);
   if (!cur) return;
@@ -204,7 +205,7 @@ document.addEventListener('click', (e) => {
 
 addBtn.addEventListener('click', () => console.log('Add button tapped'));
 
-// Core Router Tabs Layout
+// Shell Page Routing Context Execution
 navBtns.forEach(btn => {
   btn.addEventListener('click', () => {
     const target = btn.dataset.page;
@@ -217,15 +218,28 @@ navBtns.forEach(btn => {
   });
 });
 
-// Orchestrator Bootstrap Initialization
+// App Entry Point Initial Orchestrator
 (async function init() {
+  // 1. Core data dependencies fetched first
   usersDB = await loadUsersDB();
+  
+  // 2. Validate current state tokens
   const savedSession = readSession();
 
+  // 3. Render and unhide the correct UI context matching existence criteria
   if (savedSession && savedSession.userId && findUser(savedSession.userId)) {
-    enterApp(savedSession.userId);
+    currentUserId = savedSession.userId;
+    renderProfileSwitch();
+
+    const user = findUser(savedSession.userId);
+    if (user && typeof window.loadUserProfileData === 'function') {
+      window.loadUserProfileData(user.username);
+    }
+
+    appRoot.classList.remove('hidden');
   } else {
     renderUserSelectList();
+    userSelectScreen.classList.remove('hidden');
   }
 })();
-    
+      
