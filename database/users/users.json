@@ -13,13 +13,6 @@
       "name": "Hydra",
       "joinedDate": "2026-06-21",
       "active": true
-    },
-    {
-      "id": "user3",
-      "username": "sia",
-      "name": "Sia Study",
-      "joinedDate": "2026-06-27",
-      "active": true
     }
   ]
 }
